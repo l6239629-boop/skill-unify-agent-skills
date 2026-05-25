@@ -1,0 +1,4 @@
+interface:
+  display_name: "SharedSkills Manager"
+  short_description: "Unify local agent skills, track versions, and manage them in a browser UI."
+  default_prompt: "Unify the Skill libraries used by the agents on this computer, open the Chinese-ready SharedSkills Manager, record skill versions, and validate the result."

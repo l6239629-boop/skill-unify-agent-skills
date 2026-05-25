@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SharedSkills Manager</title>
+<style>
+:root{--bg:#f7f8fb;--panel:#fff;--text:#1d2433;--muted:#667085;--line:#d8dee9;--accent:#126b5d;--accent-soft:#e3f4ef;--danger:#b42318;--warn:#9a6700;--shadow:0 10px 30px rgba(18,24,40,.08)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header{padding:22px 28px 18px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+h1{margin:0;font-size:22px;font-weight:700}
+.sub{color:var(--muted);margin-top:4px;overflow-wrap:anywhere;font-size:12px}
+main{padding:22px 28px 32px}
+.toolbar{display:grid;grid-template-columns:minmax(180px,1fr) auto auto;gap:10px;margin-bottom:18px}
+input,select,button{height:36px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--text);padding:0 10px;font:inherit}
+button{cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:600}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+button.danger{color:var(--danger)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.banner{background:#e3f4ef;border:1px solid var(--accent);border-radius:8px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.banner-text{color:var(--accent);font-weight:600}
+.banner-hint{color:var(--muted);font-size:12px}
+.banner-hint code{background:var(--accent-soft);padding:1px 5px;border-radius:3px;font-size:11px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:18px;align-items:start}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);overflow:hidden}
+table{width:100%;border-collapse:collapse}
+th,td{padding:12px 14px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:12px;color:var(--muted);background:#fbfcfe;font-weight:700}
+tr:last-child td{border-bottom:0}
+th:nth-child(2),th:nth-child(3),th:nth-child(4){width:130px}
+.name{font-weight:700}
+.desc{color:var(--muted);margin-top:3px;max-width:680px}
+.path{color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;overflow-wrap:anywhere;margin-top:6px}
+.badge{display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:700;background:var(--accent-soft);color:var(--accent)}
+.badge.disabled{background:#fff4d6;color:var(--warn)}
+.badge.protected{background:#eef2f6;color:#475467}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+.stats{white-space:nowrap}
+.folder-row td{background:#f3f6f8;color:var(--text);font-weight:700;border-bottom:1px solid var(--line)}
+.folder-pill{display:inline-flex;align-items:center;gap:8px;min-height:28px}
+.folder-count{color:var(--muted);font-weight:600;font-size:12px}
+.events{padding:14px;max-height:620px;overflow:auto}
+.side-title{padding:14px 14px 0;margin:0;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.versions{padding:14px;max-height:360px;overflow:auto;border-top:1px solid var(--line)}
+.event{border-bottom:1px solid var(--line);padding:10px 0}
+.event:last-child{border-bottom:0}
+.event strong{display:block}
+.event span{color:var(--muted);font-size:12px;overflow-wrap:anywhere}
+.event ul{margin:8px 0 0 18px;padding:0;color:var(--muted)}
+.empty{padding:32px;color:var(--muted);text-align:center}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--text);color:#fff;padding:10px 20px;border-radius:8px;font-weight:600;font-size:13px;z-index:999;opacity:0;transition:opacity .25s;pointer-events:none}
+.toast.show{opacity:1}
+code.cmd{display:block;background:#1d2433;color:#e3f4ef;padding:10px 14px;border-radius:6px;font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;margin-top:8px;white-space:nowrap;overflow-x:auto}
+@media(max-width:980px){header,main{padding-left:16px;padding-right:16px}.toolbar{grid-template-columns:1fr}.layout{grid-template-columns:1fr}table,thead,tbody,tr,th,td{display:block}thead{display:none}tr{border-bottom:1px solid var(--line)}td{border-bottom:0}}
+</style>
+</head>
+<body>
+<header><div><h1>SharedSkills Manager</h1><div class="sub" id="sharedDir"></div></div>
+<div class="actions"><button id="langBtn">中文</button><button class="primary" id="rebuildBtn">Rebuild</button></div></header>
+<main>
+<div class="banner" id="banner" hidden>
+<div><div class="banner-text" id="bannerText"></div><div class="banner-hint" id="bannerHint"></div></div>
+<button id="bannerCopy" hidden></button>
+</div>
+<div class="toolbar">
+<input id="search" placeholder="按名称、描述或路径搜索 Skill">
+<select id="status"><option value="all">全部状态</option><option value="active">仅启用</option><option value="disabled">仅禁用</option></select>
+<select id="sort"><option value="name">按名称排序</option><option value="modified">按修改时间排序</option><option value="status">按状态排序</option></select>
+</div>
+<section class="layout">
+<div class="panel"><table><thead><tr><th>Skill</th><th>状态</th><th>统计</th><th>操作</th></tr></thead><tbody id="skillRows"></tbody></table><div class="empty" id="empty" hidden>没有匹配当前筛选条件的 Skill。</div></div>
+<aside class="panel"><h2 class="side-title" id="sideEvents">改动记录</h2><div class="events" id="events"></div><h2 class="side-title" id="sideVersions">知识库</h2><div class="versions" id="versions"></div></aside>
+</section>
+</main>
+<div class="toast" id="toast"></div>
+<script>
+// --- Injected data ---
+var DATA = {"builtAt": "2026-05-25T17:49:56", "skills": [{"id": ".system/imagegen", "folder": "imagegen", "path": "/Users/liuyewei.5/Desktop/SharedSkills/.system/imagegen", "relativePath": ".system/imagegen", "category": ".system", "projectName": ".system", "name": "imagegen", "description": "Generate or edit raster images when the task benefits from AI-created bitmap visuals such as photos, illustrations, textures, sprites, mockups, or transparent-background cutouts. Use when Codex should create a brand-new image, transform an existing image, or derive visual variants from references, and the output should be a bitmap asset rather than repo-native code or vector. Do not use when the task is better handled by editing existing SVG/vector/code-native assets, extending an established icon or logo system, or building the visual directly in HTML/CSS/canvas.", "status": "active", "hash": "349100fbfb001f0c129b85809d743e9e58d841fef9c9aaa4ee53d4b8c055a1e5", "fileCount": 12, "sizeBytes": 134942, "modifiedAt": "2026-05-25T11:21:31", "protected": true, "versionCount": 1}, {"id": ".system/openai-docs", "folder": "openai-docs", "path": "/Users/liuyewei.5/Desktop/SharedSkills/.system/openai-docs", "relativePath": ".system/openai-docs", "category": ".system", "projectName": ".system", "name": "openai-docs", "description": "Use when the user asks how to build with OpenAI products or APIs and needs up-to-date official documentation with citations, help choosing the latest model for a use case, or model upgrade and prompt-upgrade guidance; prioritize OpenAI docs MCP tools, use bundled references only as helper context, and restrict any fallback browsing to official OpenAI domains.", "status": "active", "hash": "02f05ef4b0f2a1ab2587cf9403742e9b24cf9fe2cb1726bd081d9c4205276271", "fileCount": 9, "sizeBytes": 52291, "modifiedAt": "2026-05-25T11:21:31", "protected": true, "versionCount": 1}, {"id": ".system/plugin-creator", "folder": "plugin-creator", "path": "/Users/liuyewei.5/Desktop/SharedSkills/.system/plugin-creator", "relativePath": ".system/plugin-creator", "category": ".system", "projectName": ".system", "name": "plugin-creator", "description": "Create and scaffold plugin directories for Codex with a required `.codex-plugin/plugin.json`, optional plugin folders/files, valid manifest defaults, and personal-marketplace entries by default. Use when Codex needs to create a new personal plugin, add optional plugin structure, or generate or update marketplace entries for plugin ordering and availability metadata.", "status": "active", "hash": "e0eefbf2dacfe6d0f40b75862c4a37731237a98478d4216e037a1c3e86495536", "fileCount": 7, "sizeBytes": 49143, "modifiedAt": "2026-05-25T11:21:31", "protected": true, "versionCount": 1}, {"id": ".system/skill-creator", "folder": "skill-creator", "path": "/Users/liuyewei.5/Desktop/SharedSkills/.system/skill-creator", "relativePath": ".system/skill-creator", "category": ".system", "projectName": ".system", "name": "skill-creator", "description": "Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Codex's capabilities with specialized knowledge, workflows, or tool integrations.", "status": "active", "hash": "a3c2a43c0e7611e99a6365f02966ee3091cb2f665bc53072e92d87a6e217c6b7", "fileCount": 9, "sizeBytes": 63340, "modifiedAt": "2026-05-25T11:21:31", "protected": true, "versionCount": 1}, {"id": ".system/skill-installer", "folder": "skill-installer", "path": "/Users/liuyewei.5/Desktop/SharedSkills/.system/skill-installer", "relativePath": ".system/skill-installer", "category": ".system", "projectName": ".system", "name": "skill-installer", "description": "Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos).", "status": "active", "hash": "0174e91ef1f93507e40d9392e0c75a5cefd7ce1534ef54e902809956c7a0f948", "fileCount": 8, "sizeBytes": 30676, "modifiedAt": "2026-05-25T11:21:31", "protected": true, "versionCount": 1}, {"id": "ccx-install", "folder": "ccx-install", "path": "/Users/liuyewei.5/Desktop/SharedSkills/ccx-install", "relativePath": "ccx-install", "category": "SharedSkills", "projectName": "SharedSkills", "name": "ccx-install", "description": "Install CCX AI API proxy gateway on macOS from GitHub (BenedictKing/ccx). Clones the repo, downloads the latest prebuilt binary, configures access password and port, sets up launch-on-boot via LaunchAgent, and verifies the service is running. Use when the user wants to set up CCX for the first time, reinstall, or troubleshoot an existing installation.", "status": "active", "hash": "b635de296b6d1d7703e65e3c4d35fb020e9c87351562c6921289b65937bfb134", "fileCount": 4, "sizeBytes": 26635, "modifiedAt": "2026-05-25T11:45:26", "protected": false, "versionCount": 0}, {"id": "gh-fix-ci", "folder": "gh-fix-ci", "path": "/Users/liuyewei.5/Desktop/SharedSkills/gh-fix-ci", "relativePath": "gh-fix-ci", "category": "SharedSkills", "projectName": "SharedSkills", "name": "gh-fix-ci", "description": "Use when a user asks to debug or fix failing GitHub PR checks that run in GitHub Actions; use `gh` to inspect checks and logs, summarize failure context, draft a fix plan, and implement only after explicit approval. Treat external providers (for example Buildkite) as out of scope and report only the details URL.", "status": "active", "hash": "62a978b17cf33bce47a24d87e948dc6090baacaceb6d5b4fac9a5a7594b12deb", "fileCount": 6, "sizeBytes": 32642, "modifiedAt": "2026-05-25T11:36:17", "protected": false, "versionCount": 0}, {"id": "interactive-site-builder", "folder": "interactive-site-builder", "path": "/Users/liuyewei.5/Desktop/SharedSkills/interactive-site-builder", "relativePath": "interactive-site-builder", "category": "SharedSkills", "projectName": "SharedSkills", "name": "interactive-site-builder", "description": "概念驱动型交互站点构建器。将抽象概念、产品逻辑、技术流程转化为自包含 HTML 长卷轴交互网页。适用场景：技术原理科普、产品功能讲解、流程可视化、迭代产品展示。提供 10 个通用组件、5 类交互设计模式、自包含骨架模板。当用户需要构建交互式网页、概念科普站、产品演示页时使用。", "status": "active", "hash": "fe236008e92f49bd8f1530cb7d95d7376075bacfcd336a598ae8ad04bf1e7116", "fileCount": 4, "sizeBytes": 24341, "modifiedAt": "2026-05-25T11:28:32", "protected": false, "versionCount": 0}, {"id": "iteration-workflow", "folder": "iteration-workflow", "path": "/Users/liuyewei.5/Desktop/SharedSkills/iteration-workflow", "relativePath": "iteration-workflow", "category": "SharedSkills", "projectName": "SharedSkills", "name": "iteration-workflow", "description": "通用迭代开发工作流。适用任何项目的 AI 辅助协作开发。提供四种协作模式（规划确认、分步推进、对比定位、回退锚点）加版本管理三件套（备份文件+Git tag+CHANGELOG）。当用户需要迭代开发、版本管理、结构化协作流程、或项目备份时使用。", "status": "active", "hash": "3e053761791710ef3d9b2b51abf705371a4438cdb7fd88d6f06c0a932f6e2f3d", "fileCount": 3, "sizeBytes": 6622, "modifiedAt": "2026-05-25T11:28:32", "protected": false, "versionCount": 0}, {"id": "unify-agent-skills", "folder": "unify-agent-skills", "path": "/Users/liuyewei.5/Desktop/SharedSkills/unify-agent-skills", "relativePath": "unify-agent-skills", "category": "SharedSkills", "projectName": "SharedSkills", "name": "unify-agent-skills", "description": "Create and maintain one Desktop SharedSkills library for all local desktop coding agents by migrating existing skills into the central folder, replacing each agent's skills directory with a symlink, and providing a local browser-based SharedSkills Manager. Use when the user wants Claude Code, Codex, Cursor, Trae, OpenClaw, OpenCode, Qoder, Gemini CLI, Qwen Code, or other agents on the same computer to share one Skill library, auto-collect newly installed skills into the central library, audit skill symlinks, manage skills visually, record skill add/delete/modify history, or disable/delete skills locally.", "status": "active", "hash": "b715d45d03d2e7781d0d583b9c0bb56c4dfd2c39b6203afa3741b51d81b628a0", "fileCount": 11, "sizeBytes": 132942, "modifiedAt": "2026-05-25T17:46:52", "protected": true, "versionCount": 5}, {"id": "git-mate", "folder": "gitmate", "path": "/Users/liuyewei.5/Desktop/Codex/Git/gitmate", "relativePath": "git-mate", "category": "git-mate", "projectName": "git-mate", "name": "git-mate", "description": "一站式 Git 代码管理与 GitHub 自动同步。覆盖环境自举、存量项目批量 git 化、新项目脚手架生成、多仓库状态面板、Conventional Commits 规范提交、命名规范引擎、PR 创建、CHANGELOG 与迭代记录生成、智能备份提醒与恢复、Skill 项目专属管理。当用户需要以下操作时使用此 Skill：(1) 初始化 git 环境或配置 GitHub 连接，(2) 批量将已有项目转成 git 仓库并推送到 GitHub，(3) 创建新项目/新 Skill 并关联 GitHub，(4) 查看多仓库状态，(5) 规范化提交、创建分支或 PR，(6) 管理 Skill 项目的版本和迭代记录，(7) 备份代码或恢复丢失的提交，(8) 处理终端反馈的 git/gh 报错", "status": "active", "hash": "51f4a8bba8989ed1d5b09a2d70d115b8565c9bf70c2a178b57701797beab72c6", "fileCount": 37, "sizeBytes": 75485, "modifiedAt": "2026-05-25T17:00:22", "protected": false, "versionCount": 0}], "events": [{"time": "2026-05-19T08:32:32+00:00", "type": "added", "skillId": "manager-test-skill", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:32:44+00:00", "type": "disabled", "skillId": "manager-test-skill", "detail": "", "actor": "user"}, {"time": "2026-05-19T08:32:44+00:00", "type": "disabled", "skillId": "manager-test-skill", "detail": "active -> disabled", "actor": "scanner"}, {"time": "2026-05-19T08:33:12+00:00", "type": "modified", "skillId": "unify-agent-skills", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:33:41+00:00", "type": "enabled", "skillId": "manager-test-skill", "detail": "", "actor": "user"}, {"time": "2026-05-19T08:33:54+00:00", "type": "deleted", "skillId": "manager-test-skill", "detail": "moved to /Users/liuyewei.5/Desktop/SharedSkills/.skill-manager/trash/20260519-163354-bWFuYWdlci10ZXN0LXNraWxs", "actor": "user"}, {"time": "2026-05-19T08:35:38+00:00", "type": "modified", "skillId": "unify-agent-skills", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:36:18+00:00", "type": "modified", "skillId": "unify-agent-skills", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:37:36+00:00", "type": "modified", "skillId": "unify-agent-skills", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:37:46+00:00", "type": "modified", "skillId": "unify-agent-skills", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:41:45+00:00", "type": "modified", "skillId": "unify-agent-skills", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:41:56+00:00", "type": "modified", "skillId": "unify-agent-skills", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:42:55+00:00", "type": "modified", "skillId": "unify-agent-skills", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:43:26+00:00", "type": "modified", "skillId": "unify-agent-skills", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:44:52+00:00", "type": "modified", "skillId": ".system/imagegen", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:44:52+00:00", "type": "modified", "skillId": ".system/openai-docs", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:44:52+00:00", "type": "modified", "skillId": ".system/plugin-creator", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:44:52+00:00", "type": "modified", "skillId": ".system/skill-creator", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:44:52+00:00", "type": "modified", "skillId": ".system/skill-installer", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:44:52+00:00", "type": "modified", "skillId": "unify-agent-skills", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:44:55+00:00", "type": "modified", "skillId": ".system/imagegen", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:44:55+00:00", "type": "modified", "skillId": ".system/openai-docs", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:44:55+00:00", "type": "modified", "skillId": ".system/plugin-creator", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:44:55+00:00", "type": "modified", "skillId": ".system/skill-creator", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:44:55+00:00", "type": "modified", "skillId": ".system/skill-installer", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:44:55+00:00", "type": "modified", "skillId": "unify-agent-skills", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:46:06+00:00", "type": "modified", "skillId": ".system/imagegen", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:46:06+00:00", "type": "modified", "skillId": ".system/openai-docs", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:46:06+00:00", "type": "modified", "skillId": ".system/plugin-creator", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:46:06+00:00", "type": "modified", "skillId": ".system/skill-creator", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:46:06+00:00", "type": "modified", "skillId": ".system/skill-installer", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:46:06+00:00", "type": "modified", "skillId": "unify-agent-skills", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:47:50+00:00", "type": "modified", "skillId": "unify-agent-skills", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:53:03+00:00", "type": "modified", "skillId": "unify-agent-skills", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:53:13+00:00", "type": "modified", "skillId": "unify-agent-skills", "detail": "", "actor": "scanner"}, {"time": "2026-05-19T08:53:33+00:00", "type": "modified", "skillId": "unify-agent-skills", "detail": "", "actor": "scanner"}, {"time": "2026-05-25T03:49:37+00:00", "type": "added", "skillId": "ccx-install", "detail": "", "actor": "scanner"}, {"time": "2026-05-25T03:49:37+00:00", "type": "added", "skillId": "gh-fix-ci", "detail": "", "actor": "scanner"}, {"time": "2026-05-25T03:49:37+00:00", "type": "added", "skillId": "interactive-site-builder", "detail": "", "actor": "scanner"}, {"time": "2026-05-25T03:49:37+00:00", "type": "added", "skillId": "iteration-workflow", "detail": "", "actor": "scanner"}, {"time": "2026-05-25T03:49:37+00:00", "type": "modified", "skillId": ".system/imagegen", "detail": "", "actor": "scanner"}, {"time": "2026-05-25T03:49:37+00:00", "type": "modified", "skillId": ".system/openai-docs", "detail": "", "actor": "scanner"}, {"time": "2026-05-25T03:49:37+00:00", "type": "modified", "skillId": ".system/plugin-creator", "detail": "", "actor": "scanner"}, {"time": "2026-05-25T03:49:37+00:00", "type": "modified", "skillId": ".system/skill-creator", "detail": "", "actor": "scanner"}, {"time": "2026-05-25T03:49:37+00:00", "type": "modified", "skillId": ".system/skill-installer", "detail": "", "actor": "scanner"}, {"time": "2026-05-25T03:49:37+00:00", "type": "modified", "skillId": "unify-agent-skills", "detail": "", "actor": "scanner"}], "skillCount": 11, "activeCount": 11, "disabledCount": 0};
+var VERSIONS = {".system/skill-creator": [{"version": 1, "time": "2026-05-19T08:44:52+00:00", "skillId": ".system/skill-creator", "name": "skill-creator", "status": "active", "hash": "0169462a2334b0fb39a217debc7f2fd8bb5879be7d851eb2080319ac88159ade", "fileCount": 9, "sizeBytes": 63340, "reason": "changed", "changePoints": ["Name changed: (empty) -> skill-creator.", "Description changed.", "Files added: SKILL.md, agents/openai.yaml, assets/skill-creator-small.svg, assets/skill-creator.png, license.txt, references/openai_yaml.md, scripts/generate_openai_yaml.py, scripts/init_skill.py, scripts/quick_validate.py"]}], ".system/skill-installer": [{"version": 1, "time": "2026-05-19T08:44:52+00:00", "skillId": ".system/skill-installer", "name": "skill-installer", "status": "active", "hash": "9cbed1c312c466e8d9c3a4ffd4d49e8a6f6bc53a7ee0f35b4f329e16eb021d1c", "fileCount": 8, "sizeBytes": 30676, "reason": "changed", "changePoints": ["Name changed: (empty) -> skill-installer.", "Description changed.", "Files added: LICENSE.txt, SKILL.md, agents/openai.yaml, assets/skill-installer-small.svg, assets/skill-installer.png, scripts/github_utils.py, scripts/install-skill-from-github.py, scripts/list-skills.py"]}], ".system/openai-docs": [{"version": 1, "time": "2026-05-19T08:44:52+00:00", "skillId": ".system/openai-docs", "name": "openai-docs", "status": "active", "hash": "6f98c87c3967f0a86b35859668fa1c8f21c64f11df7fea547226eb9e084fc0f7", "fileCount": 9, "sizeBytes": 52291, "reason": "changed", "changePoints": ["Name changed: (empty) -> openai-docs.", "Description changed.", "Files added: LICENSE.txt, SKILL.md, agents/openai.yaml, assets/openai-small.svg, assets/openai.png, references/latest-model.md, references/prompting-guide.md, references/upgrade-guide.md, scripts/resolve-latest-model-info.js"]}], ".system/plugin-creator": [{"version": 1, "time": "2026-05-19T08:44:52+00:00", "skillId": ".system/plugin-creator", "name": "plugin-creator", "status": "active", "hash": "a7927267fc5b3661ae6f2fcea4dc9be5a48a838cbc835eb4daea3a9b011d0511", "fileCount": 6, "sizeBytes": 27216, "reason": "changed", "changePoints": ["Name changed: (empty) -> plugin-creator.", "Description changed.", "Files added: SKILL.md, agents/openai.yaml, assets/plugin-creator-small.svg, assets/plugin-creator.png, references/plugin-json-spec.md, scripts/create_basic_plugin.py"]}], ".system/imagegen": [{"version": 1, "time": "2026-05-19T08:44:52+00:00", "skillId": ".system/imagegen", "name": "imagegen", "status": "active", "hash": "c6340f22fbe43f0db4cecc3b981a7a60d58ce16803ce1d6e224128f91a5fd92c", "fileCount": 12, "sizeBytes": 134942, "reason": "changed", "changePoints": ["Name changed: (empty) -> imagegen.", "Description changed.", "Files added: LICENSE.txt, SKILL.md, agents/openai.yaml, assets/imagegen-small.svg, assets/imagegen.png, references/cli.md, references/codex-network.md, references/image-api.md, references/prompting.md, references/sample-prompts.md, scripts/image_gen.py, scripts/remove_chroma_key.py"]}], "unify-agent-skills": [{"version": 1, "time": "2026-05-19T08:44:52+00:00", "skillId": "unify-agent-skills", "name": "unify-agent-skills", "status": "active", "hash": "228ad0a8d8220390136300f59ca64b0b00bafe61b5a5046db77475d8ef270134", "fileCount": 9, "sizeBytes": 70824, "reason": "changed", "changePoints": ["Name changed: (empty) -> unify-agent-skills.", "Description changed.", "Files added: .DS_Store, SKILL.md, agents/openai.yaml, assets/manager/index.html, references/agent-paths.md, references/product-requirements.md, references/skill-adjustment-playbook.md, scripts/skill_manager_server.py, scripts/unify_agent_skills.py"]}, {"version": 2, "time": "2026-05-19T08:47:50+00:00", "skillId": "unify-agent-skills", "name": "unify-agent-skills", "status": "active", "hash": "23b80594f2d74a184a87e8a00ed65c0bc6633bb9253d88fa80d22ced86bda286", "fileCount": 9, "sizeBytes": 70878, "reason": "changed", "changePoints": ["Files modified: agents/openai.yaml"]}, {"version": 3, "time": "2026-05-19T08:53:03+00:00", "skillId": "unify-agent-skills", "name": "unify-agent-skills", "status": "active", "hash": "4d8b24885ecd96bc63c2161a7676cffc5b954bdf59503395823ddc2cf147cb55", "fileCount": 10, "sizeBytes": 79074, "reason": "changed", "changePoints": ["Files added: assets/.DS_Store", "Files modified: .DS_Store"]}, {"version": 4, "time": "2026-05-19T08:53:13+00:00", "skillId": "unify-agent-skills", "name": "unify-agent-skills", "status": "active", "hash": "19693abf0ba4e208b9e489d79bd8d69c3baf626b81685816b25d6e4ad32397c6", "fileCount": 10, "sizeBytes": 80723, "reason": "changed", "changePoints": ["Files modified: assets/.DS_Store, assets/manager/index.html, scripts/skill_manager_server.py"]}, {"version": 5, "time": "2026-05-19T08:53:33+00:00", "skillId": "unify-agent-skills", "name": "unify-agent-skills", "status": "active", "hash": "8443d20aa97ca90d463f12476c9dc73d1fd4d8fd9a9ad9cc0fc63c114cc16cdc", "fileCount": 10, "sizeBytes": 80954, "reason": "changed", "changePoints": ["Files modified: SKILL.md, references/product-requirements.md"]}]};
+var SHARED_DIR = "/Users/liuyewei.5/Desktop/SharedSkills";
+// --- Constants ---
+var SELF_ID = "unify-agent-skills";
+
+// --- Full i18n matching original server version ---
+var i18n = {
+  en: {
+    title: "SharedSkills Manager", rebuild: "Rebuild", refresh: "Refresh",
+    search: "Search skills by name, description, or path",
+    all: "All statuses", activeOnly: "Active only", disabledOnly: "Disabled only",
+    sortName: "Sort by name", sortModified: "Sort by modified time", sortStatus: "Sort by status",
+    folder: "Folder", rootFolder: "SharedSkills", skill: "Skill",
+    status: "Status", stats: "Stats", actions: "Actions",
+    activeLbl: "active", disabledLbl: "disabled", protected: "Protected",
+    copyPath: "Copy Path", disable: "Disable", enable: "Enable", del: "Delete",
+    versions: "Versions", events: "Events", knowledge: "Knowledge Base", files: "files",
+    noDescription: "No description", noSkills: "No skills match the current filters.",
+    noEvents: "No recorded changes yet.", noVersions: "No versions recorded yet.",
+    selectSkill: "Select a skill to view its version knowledge base.",
+    language: "中文", operationFailed: "Operation failed",
+    snapshotBanner: "Snapshot from {time}",
+    snapshotHint: 'Data is static. Run <code>python3 ~/Desktop/SharedSkills/unify-agent-skills/scripts/build_manager.py</code> to rebuild.',
+    rebuildCopied: "Rebuild command copied to clipboard.",
+    pathCopied: "Path copied to clipboard.",
+    cmdDisable: "Disable command copied — paste in terminal where server is running.",
+    cmdEnable: "Enable command copied — paste in terminal where server is running.",
+    cmdDelete: "Delete command copied — paste in terminal where server is running.",
+    confirmDelete: function(n) { return 'Move "' + n + '" to the manager trash?'; }
+  },
+  zh: {
+    title: "SharedSkills 管理台", rebuild: "重新构建", refresh: "刷新",
+    search: "按名称、描述或路径搜索 Skill",
+    all: "全部状态", activeOnly: "仅启用", disabledOnly: "仅禁用",
+    sortName: "按名称排序", sortModified: "按修改时间排序", sortStatus: "按状态排序",
+    folder: "文件夹", rootFolder: "SharedSkills 根目录", skill: "Skill",
+    status: "状态", stats: "统计", actions: "操作",
+    activeLbl: "启用", disabledLbl: "禁用", protected: "受保护",
+    copyPath: "复制路径", disable: "禁用", enable: "启用", del: "删除",
+    versions: "版本", events: "改动记录", knowledge: "知识库", files: "个文件",
+    noDescription: "暂无描述", noSkills: "没有匹配当前筛选条件的 Skill。",
+    noEvents: "暂无改动记录。", noVersions: "暂无版本记录。",
+    selectSkill: "选择一个 Skill 查看它的版本知识库。",
+    language: "EN", operationFailed: "操作失败",
+    snapshotBanner: "数据快照，构建于 {time}",
+    snapshotHint: '数据为静态快照。运行 <code>python3 ~/Desktop/SharedSkills/unify-agent-skills/scripts/build_manager.py</code> 重新构建以刷新数据。',
+    rebuildCopied: "构建命令已复制到剪贴板。",
+    pathCopied: "路径已复制到剪贴板。",
+    cmdDisable: "禁用命令已复制 — 请在管理台服务运行后将命令粘贴到终端执行。",
+    cmdEnable: "启用命令已复制 — 请在管理台服务运行后将命令粘贴到终端执行。",
+    cmdDelete: "删除命令已复制 — 请在管理台服务运行后将命令粘贴到终端执行。",
+    confirmDelete: function(n) { return '将「' + n + '」移动到管理台回收区？'; }
+  }
+};
+
+// --- Localized event labels ---
+var eventLabels = {
+  zh: { added: "新增", removed: "移除", modified: "修改", disabled: "禁用", enabled: "启用", deleted: "删除", active: "启用" },
+  en: {}
+};
+
+// --- State ---
+var s = {
+  skills: DATA.skills || [],
+  events: DATA.events || [],
+  sharedDir: SHARED_DIR,
+  lang: localStorage.getItem("mlang") || "zh",
+  sel: "",
+  vers: []
+};
+
+// --- Helpers ---
+function t(k) { return (i18n[s.lang] && i18n[s.lang][k]) || (i18n.en && i18n.en[k]) || k; }
+function el(tp) { return (eventLabels[s.lang] && eventLabels[s.lang][tp]) || tp; }
+
+function changePoint(text) {
+  if (s.lang !== "zh") return text;
+  return text
+    .replace(/^Initial knowledge-base record for (.+)\.$/, "首次写入知识库：$1。")
+    .replace(/^Status changed: (.+) -> (.+)\.$/, "状态变化：$1 -> $2。")
+    .replace("Description changed.", "描述发生变化。")
+    .replace("Files added: ", "新增文件：")
+    .replace("Files removed: ", "移除文件：")
+    .replace("Files modified: ", "修改文件：")
+    .replace(/^Version recorded after (.+)\.$/, "已记录版本，原因：$1。");
+}
+
+function fmtBytes(bytes) {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / 1024 / 1024).toFixed(1) + " MB";
+}
+
+function badge(sk) {
+  var st = sk.status === "disabled" ? "disabledLbl" : "activeLbl";
+  var cls = sk.status === "disabled" ? "disabled" : "active";
+  var pr = sk.protected ? '<span class="badge protected">' + t("protected") + "</span>" : "";
+  return '<span class="badge ' + cls + '">' + t(st) + "</span> " + pr;
+}
+
+function escHtml(v) {
+  return String(v).replace(/[&<>"']/g, function(c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+function escAttr(v) { return escHtml(v).replace(/`/g, "&#96;").replace(/\\/g, "\\\\"); }
+
+function groupSkills(skills) {
+  var map = new Map();
+  for (var i = 0; i < skills.length; i++) {
+    var sk = skills[i];
+    var n = sk.category || "SharedSkills";
+    if (!map.has(n)) map.set(n, []);
+    map.get(n).push(sk);
+  }
+  var arr = [];
+  map.forEach(function(items, name) { arr.push({ name: name, skills: items }); });
+  arr.sort(function(a, b) { return displayCat(a.name).localeCompare(displayCat(b.name)); });
+  return arr;
+}
+
+function displayCat(name) {
+  if (name === "SharedSkills") return t("rootFolder");
+  if (name === ".disabled") return t("folder") + " · " + t("disabledLbl");
+  return t("folder") + " · " + name;
+}
+
+// --- Render ---
+function render() {
+  document.querySelector("h1").textContent = t("title");
+  document.getElementById("rebuildBtn").textContent = t("rebuild");
+  document.getElementById("langBtn").textContent = t("language");
+  document.getElementById("sharedDir").textContent = s.sharedDir;
+  document.getElementById("search").placeholder = t("search");
+  document.getElementById("sideEvents").textContent = t("events");
+  document.getElementById("sideVersions").textContent = t("knowledge");
+
+  var stSel = document.getElementById("status");
+  stSel.options[0].textContent = t("all");
+  stSel.options[1].textContent = t("activeOnly");
+  stSel.options[2].textContent = t("disabledOnly");
+
+  var soSel = document.getElementById("sort");
+  soSel.options[0].textContent = t("sortName");
+  soSel.options[1].textContent = t("sortModified");
+  soSel.options[2].textContent = t("sortStatus");
+
+  var ths = document.querySelectorAll("th");
+  ths[0].textContent = t("skill");
+  ths[1].textContent = t("status");
+  ths[2].textContent = t("stats");
+  ths[3].textContent = t("actions");
+
+  // --- Snapshot banner ---
+  var banner = document.getElementById("banner");
+  var bannerText = document.getElementById("bannerText");
+  var bannerHint = document.getElementById("bannerHint");
+  var bannerCopy = document.getElementById("bannerCopy");
+  bannerText.textContent = t("snapshotBanner").replace("{time}", DATA.builtAt || "");
+  bannerHint.innerHTML = t("snapshotHint");
+  banner.hidden = false;
+
+  // --- Filter & sort ---
+  var q = document.getElementById("search").value.trim().toLowerCase();
+  var sv = document.getElementById("status").value;
+  var sov = document.getElementById("sort").value;
+
+  var skills = s.skills.filter(function(sk) {
+    var matchStatus = sv === "all" || sk.status === sv;
+    var haystack = (sk.name + " " + sk.description + " " + sk.id).toLowerCase();
+    return matchStatus && (!q || haystack.indexOf(q) !== -1);
+  });
+
+  skills.sort(function(a, b) {
+    if (sov === "modified") return b.modifiedAt.localeCompare(a.modifiedAt);
+    if (sov === "status") return a.status.localeCompare(b.status) || a.name.localeCompare(b.name);
+    return (a.category || "").localeCompare(b.category || "") || a.name.localeCompare(b.name);
+  });
+
+  // --- Table ---
+  var groups = groupSkills(skills);
+  var rows = document.getElementById("skillRows");
+  rows.innerHTML = groups.map(function(g) {
+    return '<tr class="folder-row"><td colspan="4"><span class="folder-pill">'
+      + escHtml(g.name) + ' <span class="folder-count">' + g.skills.length + " " + t("skill")
+      + "</span></span></td></tr>"
+      + g.skills.map(function(sk) {
+        var btns = '<button onclick="showVersions(\'' + escAttr(sk.id) + '\')">' + t("versions") + '</button>'
+          + '<button onclick="copyPath(\'' + escAttr(sk.id) + '\')">' + t("copyPath") + '</button>';
+        if (sk.status === "active") {
+          btns += '<button ' + (sk.protected ? "disabled" : "")
+            + ' onclick="doCmd(\'disable\',\'' + escAttr(sk.id) + '\')">' + t("disable") + '</button>';
+        } else {
+          btns += '<button onclick="doCmd(\'enable\',\'' + escAttr(sk.id) + '\')">' + t("enable") + '</button>';
+        }
+        btns += '<button class="danger" ' + (sk.protected ? "disabled" : "")
+          + ' onclick="confirmDel(\'' + escAttr(sk.id) + '\',\'' + escAttr(sk.name) + '\')">' + t("del") + '</button>';
+
+        return '<tr><td><div class="name">' + escHtml(sk.name)
+          + '</div><div class="desc">' + escHtml(sk.description || t("noDescription"))
+          + '</div><div class="path">' + escHtml(sk.id)
+          + '</div></td><td>' + badge(sk)
+          + '</td><td class="stats"><div>' + sk.fileCount + " " + t("files")
+          + '</div><div>' + fmtBytes(sk.sizeBytes)
+          + '</div><div class="path">' + escHtml(sk.modifiedAt)
+          + '</div><div>' + (sk.versionCount || 0) + " " + t("versions")
+          + '</div></td><td><div class="actions">' + btns + '</div></td></tr>';
+      }).join("");
+  }).join("");
+
+  document.getElementById("empty").hidden = skills.length !== 0;
+  document.getElementById("empty").textContent = t("noSkills");
+
+  // --- Events ---
+  var evEl = document.getElementById("events");
+  evEl.innerHTML = s.events.slice().reverse().map(function(e) {
+    return '<div class="event"><strong>' + escHtml(el(e.type)) + " &middot; " + escHtml(e.skillId)
+      + '</strong><span>' + escHtml(e.time)
+      + (e.detail ? " &middot; " + escHtml(e.detail) : "")
+      + '</span></div>';
+  }).join("") || '<div class="empty">' + t("noEvents") + '</div>';
+
+  renderVersions();
+}
+
+// --- Versions ---
+var versionsEl = document.getElementById("versions");
+function showVersions(skillId) {
+  s.sel = skillId;
+  s.vers = VERSIONS[skillId] || [];
+  renderVersions();
+}
+
+function renderVersions() {
+  if (!s.sel) {
+    versionsEl.innerHTML = '<div class="empty">' + t("selectSkill") + '</div>';
+    return;
+  }
+  versionsEl.innerHTML = s.vers.slice().reverse().map(function(v) {
+    return '<div class="event"><strong>v' + v.version + " &middot; " + escHtml(v.name || v.skillId)
+      + '</strong><span>' + escHtml(v.time) + " &middot; " + escHtml(v.reason || "")
+      + " &middot; " + escHtml((v.hash || "").slice(0, 12))
+      + '</span><ul>' + (v.changePoints || []).map(function(p) {
+        return "<li>" + escHtml(changePoint(p)) + "</li>";
+      }).join("") + '</ul></div>';
+  }).join("") || '<div class="empty">' + t("noVersions") + '</div>';
+}
+
+// --- Actions ---
+function copyPath(skillId) {
+  var path = s.sharedDir + "/" + skillId;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(path).then(function() { toast(t("pathCopied")); })
+      .catch(function() { toast(path); });
+  } else {
+    showBanner(path, "", "Copy");
+  }
+}
+
+function doCmd(action, skillId) {
+  var cmd;
+  if (action === "disable") cmd = "curl -s -X POST http://127.0.0.1:8765/api/disable/" + encodeURIComponent(skillId);
+  else if (action === "enable") cmd = "curl -s -X POST http://127.0.0.1:8765/api/enable/" + encodeURIComponent(skillId);
+  else cmd = "curl -s -X POST http://127.0.0.1:8765/api/delete/" + encodeURIComponent(skillId);
+
+  var key = "cmd" + action.charAt(0).toUpperCase() + action.slice(1);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(cmd).then(function() { toast(t(key)); }).catch(function() { showBanner(cmd, "", "Copy"); });
+  } else {
+    showBanner(cmd, "", "Copy");
+  }
+}
+
+function confirmDel(id, name) {
+  var cf = t("confirmDelete");
+  if (typeof cf === "function") cf = cf(name);
+  if (confirm(cf)) doCmd("delete", id);
+}
+
+function rebuild() {
+  var cmd = "python3 ~/Desktop/SharedSkills/unify-agent-skills/scripts/build_manager.py";
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(cmd).then(function() { toast(t("rebuildCopied")); })
+      .catch(function() { showBanner(cmd, "", "Copy"); });
+  } else {
+    showBanner(cmd, "", "Copy");
+  }
+}
+
+// --- Toast ---
+var toastTimer;
+function toast(msg) {
+  var el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function() { el.classList.remove("show"); }, 3000);
+}
+
+// --- Banner ---
+function showBanner(text, hint, btnText) {
+  var banner = document.getElementById("banner");
+  var bannerText = document.getElementById("bannerText");
+  var bannerHint = document.getElementById("bannerHint");
+  var bannerCopy = document.getElementById("bannerCopy");
+  bannerText.textContent = text;
+  bannerHint.innerHTML = hint || "";
+  banner.hidden = false;
+  if (btnText) {
+    bannerCopy.textContent = btnText;
+    bannerCopy.hidden = false;
+    bannerCopy.onclick = function() {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() { toast("Copied."); });
+      }
+    };
+  } else {
+    bannerCopy.hidden = true;
+  }
+}
+
+// --- Init ---
+document.getElementById("rebuildBtn").addEventListener("click", rebuild);
+document.getElementById("langBtn").addEventListener("click", function() {
+  s.lang = s.lang === "zh" ? "en" : "zh";
+  localStorage.setItem("mlang", s.lang);
+  render();
+});
+document.getElementById("search").addEventListener("input", render);
+document.getElementById("status").addEventListener("change", render);
+document.getElementById("sort").addEventListener("change", render);
+
+render();
+</script>
+</body>
+</html>

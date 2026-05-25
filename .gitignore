@@ -1,0 +1,11 @@
+# Skill specific
+*.DS_Store
+*.swp
+*.swo
+*~
+.Trashes
+Thumbs.db
+
+# Config backups
+*.bak
+*.backup
